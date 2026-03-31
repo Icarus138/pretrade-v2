@@ -1,0 +1,1818 @@
+<!DOCTYPE html>
+
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>Pre-Trade Validator V2</title>
+
+<!--
+=================================================================
+  PRE-TRADE VALIDATOR V2
+  Outil de validation pré-trade — filtre anti-FOMO / anti-erreur
+  Fichier HTML autonome · CSS + JS intégrés · localStorage
+=================================================================
+-->
+
+<style>
+/* ================================================================
+   VARIABLES & RESET
+================================================================ */
+:root {
+  /* Couleurs de fond */
+  --bg-0: #080b10;
+  --bg-1: #0d1117;
+  --bg-2: #131920;
+  --bg-3: #1a2230;
+  --bg-4: #1e2a3a;
+
+  /* Bordures */
+  --border:       #1e2d42;
+  --border-light: #263548;
+  --border-focus: #2e4460;
+
+  /* Texte */
+  --t1: #e2e8f4;
+  --t2: #7a90ab;
+  --t3: #3d5068;
+  --t4: #1e2d42;
+
+  /* Accents */
+  --blue:    #3b82f6;
+  --blue-d:  rgba(59,130,246,.12);
+  --green:   #22c55e;
+  --green-d: rgba(34,197,94,.10);
+  --amber:   #f59e0b;
+  --amber-d: rgba(245,158,11,.10);
+  --red:     #ef4444;
+  --red-d:   rgba(239,68,68,.10);
+  --red-b:   rgba(239,68,68,.22);
+
+  /* Typographie */
+  --font-ui:   'Helvetica Neue', Helvetica, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+
+  /* Espacements */
+  --gap:    16px;
+  --radius: 10px;
+  --radius-lg: 14px;
+
+  /* Transition */
+  --t: 140ms ease;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; -webkit-text-size-adjust: 100%; }
+
+body {
+  background: var(--bg-0);
+  color: var(--t1);
+  font-family: var(--font-ui);
+  min-height: 100vh;
+  padding: 16px 12px 40px;
+  background-image:
+    radial-gradient(ellipse 100% 50% at 50% 0%, rgba(59,130,246,.05) 0%, transparent 60%);
+}
+
+/* ================================================================
+   LAYOUT
+================================================================ */
+.page-wrap {
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ================================================================
+   HEADER
+================================================================ */
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 20px 20px 18px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.header-left {}
+
+.header-eyebrow {
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 5px;
+}
+
+.header-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--t1);
+  letter-spacing: -.015em;
+  line-height: 1.2;
+}
+
+.header-sub {
+  font-size: .75rem;
+  color: var(--t2);
+  margin-top: 3px;
+}
+
+.header-clock {
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  color: var(--t2);
+  text-align: right;
+  line-height: 1.6;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+#clock-time {
+  display: block;
+  font-size: .95rem;
+  color: var(--t1);
+  font-weight: 600;
+}
+
+/* ================================================================
+   ALERTE NEWS — toujours visible en cas de blocage
+================================================================ */
+.news-alert {
+  display: none;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--red-b);
+  border: 1.5px solid var(--red);
+  border-radius: var(--radius);
+  animation: pulse-border 1.4s ease-in-out infinite;
+}
+
+.news-alert.active { display: flex; }
+
+@keyframes pulse-border {
+  0%, 100% { border-color: var(--red); }
+  50%       { border-color: rgba(239,68,68,.4); }
+}
+
+.news-alert-icon {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.news-alert-text strong {
+  display: block;
+  color: var(--red);
+  font-size: .88rem;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.news-alert-text span {
+  font-size: .78rem;
+  color: #f8a0a0;
+}
+
+/* ================================================================
+   SECTIONS / CARTES
+================================================================ */
+.section {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+}
+
+.section-title {
+  font-size: .7rem;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--t2);
+}
+
+.section-required {
+  font-size: .62rem;
+  font-family: var(--font-mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--amber);
+  background: rgba(245,158,11,.1);
+  padding: 2px 7px;
+  border-radius: 20px;
+  border: 1px solid rgba(245,158,11,.2);
+}
+
+.section-counter {
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  color: var(--t2);
+}
+
+.section-counter .count-val {
+  color: var(--t1);
+  font-weight: 700;
+}
+
+.section-body {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ================================================================
+   SELECTS
+================================================================ */
+.field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field-label {
+  font-size: .68rem;
+  font-family: var(--font-mono);
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+
+.select-wrap {
+  position: relative;
+}
+
+.select-wrap::after {
+  content: '▾';
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--t2);
+  pointer-events: none;
+  font-size: .78rem;
+}
+
+select {
+  width: 100%;
+  appearance: none;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--t1);
+  font-family: var(--font-ui);
+  font-size: .85rem;
+  padding: 10px 32px 10px 12px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--t);
+}
+
+select:focus { border-color: var(--border-focus); }
+
+select option { background: #0d1117; }
+
+/* ================================================================
+   CHAMP TEXTE
+================================================================ */
+input[type="text"] {
+  width: 100%;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--t1);
+  font-family: var(--font-ui);
+  font-size: .85rem;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color var(--t);
+}
+
+input[type="text"]::placeholder { color: var(--t3); }
+input[type="text"]:focus { border-color: var(--border-focus); }
+
+textarea {
+  width: 100%;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--t1);
+  font-family: var(--font-ui);
+  font-size: .85rem;
+  line-height: 1.5;
+  padding: 11px 13px;
+  resize: vertical;
+  min-height: 80px;
+  outline: none;
+  transition: border-color var(--t);
+}
+
+textarea::placeholder { color: var(--t3); }
+textarea:focus { border-color: var(--border-focus); }
+
+/* ================================================================
+   CHECKBOXES — larges pour mobile
+================================================================ */
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 13px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color var(--t), background var(--t);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 44px; /* cible mobile iOS */
+}
+
+.check-item:hover { border-color: var(--border-light); }
+
+.check-item.checked {
+  border-color: rgba(34,197,94,.3);
+  background: var(--green-d);
+}
+
+.check-item.blocked {
+  border-color: rgba(239,68,68,.3) !important;
+  background: var(--red-d) !important;
+}
+
+/* Masquer la checkbox native */
+.check-item input[type="checkbox"] { display: none; }
+
+/* Checkbox visuelle */
+.cb-box {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--border-light);
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--t), border-color var(--t);
+  background: var(--bg-4);
+}
+
+.check-item.checked .cb-box {
+  background: var(--green);
+  border-color: var(--green);
+}
+
+.check-item.blocked .cb-box {
+  background: var(--red);
+  border-color: var(--red);
+}
+
+/* Coche */
+.cb-box::after {
+  content: '';
+  display: none;
+  width: 11px;
+  height: 7px;
+  border-left: 2px solid #000;
+  border-bottom: 2px solid #000;
+  transform: rotate(-45deg) translateY(-1px);
+}
+
+.check-item.checked .cb-box::after,
+.check-item.blocked .cb-box::after { display: block; }
+
+.cb-label {
+  font-size: .84rem;
+  color: var(--t1);
+  line-height: 1.3;
+  flex: 1;
+}
+
+.check-item.checked .cb-label { color: var(--green); }
+.check-item.blocked .cb-label { color: var(--red); }
+
+/* ================================================================
+   GRILLE 2 COLONNES (confluences + niveau clé)
+================================================================ */
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+@media (max-width: 380px) {
+  .grid-2 { grid-template-columns: 1fr; }
+}
+
+/* ================================================================
+   BARRE DE PROGRESSION
+================================================================ */
+.progress-wrap {
+  height: 3px;
+  background: var(--bg-3);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--blue);
+  transition: width 220ms ease, background 220ms ease;
+}
+
+.progress-fill.lvl-faible  { background: var(--red); }
+.progress-fill.lvl-moyen   { background: var(--amber); }
+.progress-fill.lvl-a-plus  { background: var(--green); }
+
+/* ================================================================
+   SCORE / STATUT FINAL
+================================================================ */
+.result-block {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.result-header {
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+}
+
+.result-header-title {
+  font-size: .7rem;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--t2);
+}
+
+.result-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Score qualité */
+.quality-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.quality-score-num {
+  font-family: var(--font-mono);
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--t1);
+  line-height: 1;
+  min-width: 56px;
+}
+
+.quality-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quality-level {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 20px;
+  align-self: flex-start;
+}
+
+.quality-level.faible { color: var(--red);   background: var(--red-d);   border: 1px solid rgba(239,68,68,.2); }
+.quality-level.moyen  { color: var(--amber); background: var(--amber-d); border: 1px solid rgba(245,158,11,.2); }
+.quality-level.a-plus { color: var(--green); background: var(--green-d); border: 1px solid rgba(34,197,94,.2); }
+
+/* Badges statut final */
+.verdict {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  border: 1.5px solid;
+  transition: all var(--t);
+}
+
+.verdict.refused {
+  background: var(--red-b);
+  border-color: var(--red);
+}
+.verdict.weak {
+  background: var(--amber-d);
+  border-color: rgba(245,158,11,.4);
+}
+.verdict.approved {
+  background: var(--green-d);
+  border-color: rgba(34,197,94,.35);
+}
+
+.verdict-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.verdict-text strong {
+  display: block;
+  font-size: .95rem;
+  font-weight: 800;
+  letter-spacing: .01em;
+}
+
+.verdict.refused  .verdict-text strong { color: var(--red); }
+.verdict.weak     .verdict-text strong { color: var(--amber); }
+.verdict.approved .verdict-text strong { color: var(--green); }
+
+.verdict-text span {
+  font-size: .77rem;
+  color: var(--t2);
+  margin-top: 2px;
+  display: block;
+}
+
+/* ================================================================
+   RÉCAPITULATIF
+================================================================ */
+.recap-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+@media (max-width: 360px) {
+  .recap-grid { grid-template-columns: 1fr; }
+}
+
+.recap-cell {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+
+.recap-cell-label {
+  font-family: var(--font-mono);
+  font-size: .6rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--t3);
+  margin-bottom: 4px;
+}
+
+.recap-cell-value {
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--t1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ================================================================
+   BOUTONS D'ACTION
+================================================================ */
+.actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.btn {
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  font-family: var(--font-ui);
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid;
+  transition: opacity var(--t), background var(--t), color var(--t);
+  text-align: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:active { opacity: .7; }
+
+.btn-secondary {
+  background: transparent;
+  border-color: var(--border-light);
+  color: var(--t2);
+}
+
+.btn-secondary:hover {
+  border-color: var(--red);
+  color: var(--red);
+  background: var(--red-d);
+}
+
+.btn-primary {
+  background: var(--blue-d);
+  border-color: rgba(59,130,246,.35);
+  color: var(--blue);
+}
+
+.btn-primary:hover {
+  background: rgba(59,130,246,.2);
+}
+
+/* Toast notification */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--bg-3);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  color: var(--t1);
+  font-size: .82rem;
+  padding: 10px 20px;
+  white-space: nowrap;
+  transition: transform 300ms cubic-bezier(.16,1,.3,1);
+  z-index: 999;
+  pointer-events: none;
+}
+
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ================================================================
+   PANNEAU HISTORIQUE
+================================================================ */
+.history-panel {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.history-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.history-title {
+  font-size: .7rem;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--t2);
+}
+
+.history-count-badge {
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  background: var(--bg-4);
+  border: 1px solid var(--border-light);
+  color: var(--t2);
+  padding: 1px 7px;
+  border-radius: 20px;
+}
+
+.history-toggle-icon {
+  font-size: .8rem;
+  color: var(--t3);
+  transition: transform var(--t);
+}
+
+.history-panel.open .history-toggle-icon {
+  transform: rotate(180deg);
+}
+
+.history-body {
+  display: none;
+  flex-direction: column;
+  gap: 0;
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.history-panel.open .history-body {
+  display: flex;
+}
+
+/* Scrollbar discrète */
+.history-body::-webkit-scrollbar { width: 4px; }
+.history-body::-webkit-scrollbar-track { background: var(--bg-1); }
+.history-body::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 2px; }
+
+.history-empty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: .8rem;
+  color: var(--t3);
+  font-family: var(--font-mono);
+}
+
+/* Carte snapshot individuelle */
+.snap-card {
+  border-bottom: 1px solid var(--border);
+  padding: 13px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  transition: background var(--t);
+}
+
+.snap-card:last-child { border-bottom: none; }
+.snap-card:hover { background: var(--bg-2); }
+
+.snap-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.snap-ts {
+  font-family: var(--font-mono);
+  font-size: .65rem;
+  color: var(--t3);
+}
+
+.snap-verdict {
+  font-family: var(--font-mono);
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  padding: 2px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.snap-verdict.refused { color: var(--red);   background: var(--red-d);   border: 1px solid rgba(239,68,68,.2); }
+.snap-verdict.weak    { color: var(--amber); background: var(--amber-d); border: 1px solid rgba(245,158,11,.2); }
+.snap-verdict.approved{ color: var(--green); background: var(--green-d); border: 1px solid rgba(34,197,94,.2); }
+
+.snap-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.snap-tag {
+  font-size: .72rem;
+  color: var(--t2);
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.snap-tag strong {
+  color: var(--t1);
+  font-weight: 600;
+}
+
+.snap-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.snap-chip {
+  font-size: .67rem;
+  color: var(--t3);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+}
+
+.snap-note {
+  font-size: .76rem;
+  color: var(--t2);
+  line-height: 1.4;
+  font-style: italic;
+  border-left: 2px solid var(--border-light);
+  padding-left: 9px;
+}
+
+.snap-actions {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+
+.btn-snap-copy {
+  padding: 5px 12px;
+  font-size: .72rem;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: .05em;
+  background: var(--bg-3);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  color: var(--t2);
+  cursor: pointer;
+  transition: color var(--t), border-color var(--t), background var(--t);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-snap-copy:hover {
+  color: var(--blue);
+  border-color: rgba(59,130,246,.4);
+  background: var(--blue-d);
+}
+
+.btn-snap-copy.copied {
+  color: var(--green);
+  border-color: rgba(34,197,94,.4);
+  background: var(--green-d);
+}
+
+.btn-snap-delete {
+  padding: 5px 9px;
+  font-size: .75rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--t3);
+  cursor: pointer;
+  transition: color var(--t), border-color var(--t);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-snap-delete:hover {
+  color: var(--red);
+  border-color: rgba(239,68,68,.3);
+}
+
+.history-footer {
+  display: none;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-2);
+}
+
+.history-panel.open .history-footer { display: block; }
+
+.btn-clear-history {
+  width: 100%;
+  padding: 8px;
+  font-size: .72rem;
+  font-family: var(--font-mono);
+  letter-spacing: .06em;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--t3);
+  cursor: pointer;
+  transition: color var(--t), border-color var(--t);
+}
+
+.btn-clear-history:hover {
+  color: var(--red);
+  border-color: rgba(239,68,68,.3);
+}
+
+/* ================================================================
+   RESPONSIVE
+================================================================ */
+@media (max-width: 480px) {
+  body { padding: 10px 8px 36px; }
+  .site-header { flex-direction: column; gap: 10px; }
+  .header-clock { text-align: left; margin-left: 0; }
+  .section-header { padding: 10px 13px 9px; }
+  .section-body { padding: 12px 13px; }
+}
+</style>
+
+</head>
+
+<body>
+<div class="page-wrap">
+
+  <!-- ================================================================
+       EN-TÊTE
+  ================================================================ -->
+
+  <header class="site-header">
+    <div class="header-left">
+      <div class="header-eyebrow">Pre-Trade Validator · V2</div>
+      <div class="header-title">Validation d'entrée en trade</div>
+      <div class="header-sub">Outil de validation pré-trade</div>
+    </div>
+    <div class="header-clock">
+      <span id="clock-time">--:--:--</span>
+      <span id="clock-date">--</span>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ALERTE NEWS (masquée par défaut, activée par JS)
+  ================================================================ -->
+
+  <div class="news-alert" id="news-alert">
+    <div class="news-alert-icon">⛔</div>
+    <div class="news-alert-text">
+      <strong>TRADE INTERDIT — NEWS IMMINENTE</strong>
+      <span>Un événement macro est à moins de 30 minutes. Entrée en trade impossible.</span>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       BLOC 1 — TYPE DE TRADE
+  ================================================================ -->
+
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">01 · Type de trade</span>
+      <span class="section-required">Obligatoire</span>
+    </div>
+    <div class="section-body">
+      <div class="select-wrap">
+        <!-- PERSONNALISATION : ajouter/modifier les types de trade ici -->
+        <select id="trade-type">
+          <option value="">— Sélectionner —</option>
+          <option value="Scalp">Scalp</option>
+          <option value="Intraday">Intraday</option>
+          <option value="Swing">Swing</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       BLOC 2 — NIVEAU CLÉ
+  ================================================================ -->
+
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">02 · Niveau clé</span>
+      <span class="section-counter"><span class="count-val" id="key-count">0</span> / 7</span>
+    </div>
+    <div class="section-body">
+      <!-- PERSONNALISATION : modifier les niveaux clés ici -->
+      <div class="grid-2" id="key-levels">
+        <label class="check-item" data-group="key">
+          <input type="checkbox" name="key[]" value="HTF H4/D1"/>
+          <div class="cb-box"></div>
+          <span class="cb-label">HTF H4 / D1</span>
+        </label>
+        <label class="check-item" data-group="key">
+          <input type="checkbox" name="key[]" value="PDH/PDL"/>
+          <div class="cb-box"></div>
+          <span class="cb-label">PDH / PDL</span>
+        </label>
+        <label class="check-item" data-group="key">
+          <input type="checkbox" name="key[]" value="Weekly H/L"/>
+          <div class="cb-box"></div>
+          <span class="cb-label">Weekly High / Low</span>
+        </label>
+        <label class="check-item" data-group="key">
+          <input type="checkbox" name="key[]" value="Liquidity sweep"/>
+          <div class="cb-box"></div>
+          <span class="cb-label">Liquidity sweep</span>
+        </label>
+        <label class="check-item" data-group="key">
+          <input type="checkbox" name="key[]" value="Zone déjà réactive"/>
+          <div class="cb-box"></div>
+          <span class="cb-label">Zone déjà réactive</span>
+        </label>
+        <label class="check-item" data-group="key">
+          <input type="checkbox" name="key[]" value="Premium/Discount"/>
+          <div class="cb-box"></div>
+          <span class="cb-label">Premium / Discount</span>
+        </label>
+        <label class="check-item" data-group="key">
+          <input type="checkbox" name="key[]" value="Session H/L"/>
+          <div class="cb-box"></div>
+          <span class="cb-label">Session High / Low</span>
+        </label>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-fill" id="key-progress" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       BLOC 3 — SETUP
+  ================================================================ -->
+
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">03 · Setup</span>
+      <span class="section-required">Obligatoire</span>
+    </div>
+    <div class="section-body">
+      <div class="field-row">
+        <div class="field-label">Setup principal</div>
+        <div class="select-wrap">
+          <!-- PERSONNALISATION : modifier les setups ici -->
+          <select id="setup-type">
+            <option value="">— Sélectionner un setup —</option>
+            <option value="ICT Asian Killzone XAU">ICT Asian Killzone XAU</option>
+            <option value="London continuation">London continuation</option>
+            <option value="NY reversal">NY reversal</option>
+            <option value="FVG continuation">FVG continuation</option>
+            <option value="OB reversal">OB reversal</option>
+            <option value="Sweep + displacement">Sweep + displacement</option>
+            <option value="Setup perso">Setup perso</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">Nom précis du setup (optionnel)</div>
+        <input type="text" id="setup-name" placeholder="Ex : Sweep PDH + OB H1 + FVG M15…"/>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       BLOC 4 — CONFLUENCES
+  ================================================================ -->
+
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">04 · Confluences</span>
+      <span class="section-counter"><span class="count-val" id="conf-count">0</span> / 10</span>
+    </div>
+    <div class="section-body">
+      <!-- PERSONNALISATION : modifier les confluences ici -->
+      <div class="grid-2" id="confluences">
+        <label class="check-item" data-group="conf">
+          <input type="checkbox" name="conf[]" value="FVG HTF"/>
+          <div class="cb-box"></div>
+          <span class="cb-label">FVG HTF</span>
+        </label>
+        <label class="check-item" data-group="conf">
+          <input type="checkbox" name="conf[]" value="FVG LTF"/>
+          <div class="cb-box"></div>
+          <span class="cb-label">FVG LTF</span>
+        </label>
+        <label class="check-item" data-group="conf">
+          <input type="checkbox" name="conf[]" value="OB HTF"/>
+          <div class="cb-box"></div>
+          <span class="cb-label">OB HTF</span>
+        </label>
+        <label class="check-item" data-group="conf">
+          <input type="checkbox" name="conf[]" value="OB LTF"/>
+          <div class="cb-box"></div>
+          <span class="cb-label">OB LTF</span>
+        </label>
+        <label class="check-item" data-group="conf">
+          <input type="checkbox" name="conf[]" value="IFVG"/>
+          <div class="cb-box"></div>
+          <span class="cb-label">IFVG</span>
+        </label>
+        <label class="check-item" data-group="conf">
+          <input type="checkbox" name="conf[]" value="Displacement"/>
+          <div class="cb-box"></div>
+          <span class="cb-label">Displacement</span>
+        </label>
+        <label class="check-item" data-group="conf">
+          <input type="checkbox" name="conf[]" value="Vector candle"/>
+          <div class="cb-box"></div>
+          <span class="cb-label">Vector candle</span>
+        </label>
+        <label class="check-item" data-group="conf">
+          <input type="checkbox" name="conf[]" value="MSS/CHoCH"/>
+          <div class="cb-box"></div>
+          <span class="cb-label">MSS / CHoCH</span>
+        </label>
+        <label class="check-item" data-group="conf">
+          <input type="checkbox" name="conf[]" value="Alignement bias HTF"/>
+          <div class="cb-box"></div>
+          <span class="cb-label">Alignement bias HTF</span>
+        </label>
+        <label class="check-item" data-group="conf">
+          <input type="checkbox" name="conf[]" value="Entrée M15/M5 propre"/>
+          <div class="cb-box"></div>
+          <span class="cb-label">Entrée M15 / M5 propre</span>
+        </label>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-fill" id="conf-progress" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       BLOC 5 — RISK MANAGEMENT
+  ================================================================ -->
+
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">05 · Risk management</span>
+      <span class="section-required">Obligatoire</span>
+    </div>
+    <div class="section-body">
+      <!-- items data-required="true" = bloquants -->
+      <label class="check-item" data-group="risk" data-key="sl">
+        <input type="checkbox" name="risk[]" value="Stop Loss défini"/>
+        <div class="cb-box"></div>
+        <span class="cb-label">Stop Loss défini</span>
+      </label>
+      <label class="check-item" data-group="risk" data-key="tp">
+        <input type="checkbox" name="risk[]" value="Take Profit défini"/>
+        <div class="cb-box"></div>
+        <span class="cb-label">Take Profit défini</span>
+      </label>
+      <label class="check-item" data-group="risk" data-key="rr">
+        <input type="checkbox" name="risk[]" value="RR minimum atteint"/>
+        <div class="cb-box"></div>
+        <span class="cb-label">RR minimum atteint</span>
+      </label>
+      <label class="check-item" data-group="risk">
+        <input type="checkbox" name="risk[]" value="Taille de position cohérente"/>
+        <div class="cb-box"></div>
+        <span class="cb-label">Taille de position cohérente</span>
+      </label>
+      <label class="check-item" data-group="risk">
+        <input type="checkbox" name="risk[]" value="Risque % respecté"/>
+        <div class="cb-box"></div>
+        <span class="cb-label">Risque % respecté</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       BLOC 6 — NEWS / MACRO
+  ================================================================ -->
+
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">06 · News / Macro</span>
+    </div>
+    <div class="section-body">
+      <div class="field-row">
+        <div class="field-label">Événement macro</div>
+        <div class="select-wrap">
+          <!-- PERSONNALISATION : modifier les événements macro ici -->
+          <select id="macro-event">
+            <option value="None">None</option>
+            <option value="CPI">CPI</option>
+            <option value="Core PCE">Core PCE</option>
+            <option value="FOMC">FOMC</option>
+            <option value="NFP">NFP</option>
+            <option value="PPI">PPI</option>
+            <option value="Jobless Claims">Jobless Claims</option>
+            <option value="Autre">Autre</option>
+          </select>
+        </div>
+      </div>
+      <!-- Cette case est BLOQUANTE si cochée -->
+      <label class="check-item" data-group="news" data-key="news30" id="news30-item">
+        <input type="checkbox" name="news[]" value="News &lt; 30 min" id="news30"/>
+        <div class="cb-box"></div>
+        <span class="cb-label">⚠ News à moins de 30 minutes</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       BLOC 7 — DISCIPLINE / ANTI-FOMO
+  ================================================================ -->
+
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">07 · Discipline / Anti-FOMO</span>
+      <span class="section-required">Obligatoire ×2</span>
+    </div>
+    <div class="section-body">
+      <label class="check-item" data-group="discipline" data-key="evident">
+        <input type="checkbox" name="discipline[]" value="Trade évident visuellement"/>
+        <div class="cb-box"></div>
+        <span class="cb-label">Ce trade est évident visuellement</span>
+      </label>
+      <label class="check-item" data-group="discipline" data-key="plan">
+        <input type="checkbox" name="discipline[]" value="Trade respecte le plan"/>
+        <div class="cb-box"></div>
+        <span class="cb-label">Ce trade respecte exactement mon plan</span>
+      </label>
+      <label class="check-item" data-group="discipline">
+        <input type="checkbox" name="discipline[]" value="Pas par ennui"/>
+        <div class="cb-box"></div>
+        <span class="cb-label">Je ne trade pas par ennui</span>
+      </label>
+      <label class="check-item" data-group="discipline">
+        <input type="checkbox" name="discipline[]" value="Pas en revenge trade"/>
+        <div class="cb-box"></div>
+        <span class="cb-label">Je ne suis pas en revenge trade</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       BLOC 8 — CONTEXTE / REMARQUE
+  ================================================================ -->
+
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">08 · Contexte / Remarque</span>
+    </div>
+    <div class="section-body">
+      <textarea id="note" placeholder="Ex : Session London, OB H1 sur 2670 XAU, spread normal, bias bullish D1…" rows="3"></textarea>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       RÉSULTAT FINAL
+  ================================================================ -->
+
+  <div class="result-block">
+    <div class="result-header">
+      <div class="result-header-title">Score de qualité &amp; Verdict</div>
+    </div>
+    <div class="result-body">
+
+```
+  <!-- Score qualité -->
+  <div class="quality-row">
+    <div class="quality-score-num" id="score-num">0</div>
+    <div class="quality-right">
+      <div class="quality-level faible" id="quality-badge">Faible</div>
+      <div class="progress-wrap" style="margin-top:0">
+        <div class="progress-fill faible" id="score-progress" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Verdict -->
+  <div class="verdict refused" id="verdict">
+    <div class="verdict-icon" id="verdict-icon">⛔</div>
+    <div class="verdict-text">
+      <strong id="verdict-title">REFUSÉ</strong>
+      <span id="verdict-reason">Critères obligatoires manquants.</span>
+    </div>
+  </div>
+
+  <!-- Récapitulatif -->
+  <div class="recap-grid">
+    <div class="recap-cell">
+      <div class="recap-cell-label">Type de trade</div>
+      <div class="recap-cell-value" id="recap-type">—</div>
+    </div>
+    <div class="recap-cell">
+      <div class="recap-cell-label">Événement macro</div>
+      <div class="recap-cell-value" id="recap-macro">None</div>
+    </div>
+    <div class="recap-cell">
+      <div class="recap-cell-label">Setup</div>
+      <div class="recap-cell-value" id="recap-setup">—</div>
+    </div>
+    <div class="recap-cell">
+      <div class="recap-cell-label">Score / Niveau</div>
+      <div class="recap-cell-value" id="recap-score">0 · Faible</div>
+    </div>
+  </div>
+
+</div>
+```
+
+  </div>
+
+  <!-- ================================================================
+       HISTORIQUE DES SNAPSHOTS
+  ================================================================ -->
+
+  <div class="history-panel" id="history-panel">
+    <div class="history-header" id="history-toggle">
+      <div class="history-header-left">
+        <span class="history-title">&#128203; Historique snapshots</span>
+        <span class="history-count-badge" id="history-count-badge">0</span>
+      </div>
+      <span class="history-toggle-icon">&#9662;</span>
+    </div>
+    <div class="history-body" id="history-body">
+      <div class="history-empty" id="history-empty">Aucun snapshot sauvegardé.</div>
+    </div>
+    <div class="history-footer">
+      <button class="btn-clear-history" id="btn-clear-history">Effacer tout l'historique</button>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       BOUTONS D'ACTION
+  ================================================================ -->
+
+  <div class="actions-row">
+    <button class="btn btn-secondary" id="btn-reset">↺ &nbsp;Réinitialiser</button>
+    <button class="btn btn-primary"   id="btn-snapshot">⬇ &nbsp;Sauvegarder snapshot</button>
+  </div>
+
+</div><!-- /page-wrap -->
+
+<!-- Toast -->
+
+<div class="toast" id="toast">Snapshot sauvegardé ✓</div>
+
+<!-- ================================================================
+     JAVASCRIPT
+================================================================ -->
+
+<script>
+/* ================================================================
+   CONSTANTES — clés localStorage
+================================================================ */
+const LS = {
+  tradeType:  'ptv2_trade_type',
+  setupType:  'ptv2_setup_type',
+  setupName:  'ptv2_setup_name',
+  macroEvent: 'ptv2_macro_event',
+  note:       'ptv2_note',
+  checks:     'ptv2_checks',     // objet { groupKey_index: bool }
+  snapshots:  'ptv2_snapshots'   // tableau JSON
+};
+
+/* ================================================================
+   RÉFÉRENCES DOM
+================================================================ */
+const $ = id => document.getElementById(id);
+
+const tradeTypeEl  = $('trade-type');
+const setupTypeEl  = $('setup-type');
+const setupNameEl  = $('setup-name');
+const macroEventEl = $('macro-event');
+const noteEl       = $('note');
+const news30El     = $('news30');
+const news30Item   = $('news30-item');
+const newsAlertEl  = $('news-alert');
+
+// Compteurs et progressions
+const keyCountEl    = $('key-count');
+const confCountEl   = $('conf-count');
+const keyProgressEl = $('key-progress');
+const confProgressEl= $('conf-progress');
+
+// Résultat
+const scoreNumEl    = $('score-num');
+const qualityBadge  = $('quality-badge');
+const scoreProgressEl = $('score-progress');
+const verdictEl     = $('verdict');
+const verdictIconEl = $('verdict-icon');
+const verdictTitleEl= $('verdict-title');
+const verdictReasonEl=$('verdict-reason');
+
+// Récap
+const recapTypeEl  = $('recap-type');
+const recapMacroEl = $('recap-macro');
+const recapSetupEl = $('recap-setup');
+const recapScoreEl = $('recap-score');
+
+// Boutons
+const btnReset    = $('btn-reset');
+const btnSnapshot = $('btn-snapshot');
+const toastEl     = $('toast');
+
+/* ================================================================
+   HORLOGE
+================================================================ */
+function updateClock() {
+  const now = new Date();
+  $('clock-time').textContent = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  $('clock-date').textContent = now.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+/* ================================================================
+   LECTURE / ÉCRITURE localStorage
+================================================================ */
+function saveAll() {
+  localStorage.setItem(LS.tradeType,  tradeTypeEl.value);
+  localStorage.setItem(LS.setupType,  setupTypeEl.value);
+  localStorage.setItem(LS.setupName,  setupNameEl.value);
+  localStorage.setItem(LS.macroEvent, macroEventEl.value);
+  localStorage.setItem(LS.note,       noteEl.value);
+
+  // Toutes les cases à cocher
+  const state = {};
+  document.querySelectorAll('.check-item input[type="checkbox"]').forEach((cb, i) => {
+    state[i] = cb.checked;
+  });
+  localStorage.setItem(LS.checks, JSON.stringify(state));
+}
+
+function loadAll() {
+  const savedTrade = localStorage.getItem(LS.tradeType);
+  if (savedTrade !== null) tradeTypeEl.value = savedTrade;
+
+  const savedSetup = localStorage.getItem(LS.setupType);
+  if (savedSetup !== null) setupTypeEl.value = savedSetup;
+
+  const savedSetupName = localStorage.getItem(LS.setupName);
+  if (savedSetupName !== null) setupNameEl.value = savedSetupName;
+
+  const savedMacro = localStorage.getItem(LS.macroEvent);
+  if (savedMacro !== null) macroEventEl.value = savedMacro;
+
+  const savedNote = localStorage.getItem(LS.note);
+  if (savedNote !== null) noteEl.value = savedNote;
+
+  let savedChecks = {};
+  try { savedChecks = JSON.parse(localStorage.getItem(LS.checks)) || {}; } catch(e) {}
+
+  document.querySelectorAll('.check-item input[type="checkbox"]').forEach((cb, i) => {
+    if (savedChecks[i] !== undefined) {
+      cb.checked = savedChecks[i];
+      cb.closest('.check-item').classList.toggle('checked', savedChecks[i]);
+    }
+  });
+}
+
+/* ================================================================
+   LOGIQUE DE VALIDATION ET SCORE
+================================================================ */
+function evaluate() {
+  /* — Alerte news — */
+  const newsBlocked = news30El.checked;
+  newsAlertEl.classList.toggle('active', newsBlocked);
+  news30Item.classList.toggle('blocked', newsBlocked);
+
+  /* — Compteur niveaux clés — */
+  const keyItems = document.querySelectorAll('[data-group="key"] input');
+  const keyChecked = [...keyItems].filter(c => c.checked).length;
+  keyCountEl.textContent = keyChecked;
+  keyProgressEl.style.width = (keyChecked / keyItems.length * 100) + '%';
+
+  /* — Compteur confluences — */
+  const confItems = document.querySelectorAll('[data-group="conf"] input');
+  const confChecked = [...confItems].filter(c => c.checked).length;
+  confCountEl.textContent = confChecked;
+  confProgressEl.style.width = (confChecked / confItems.length * 100) + '%';
+
+  /* ── Validation majeure (bloquants) ──────────────────────── */
+  const setupSelected  = setupTypeEl.value !== '';
+  const keyOk          = keyChecked >= 1;
+  const slOk           = document.querySelector('[data-key="sl"] input')?.checked;
+  const tpOk           = document.querySelector('[data-key="tp"] input')?.checked;
+  const rrOk           = document.querySelector('[data-key="rr"] input')?.checked;
+  const planOk         = document.querySelector('[data-key="plan"] input')?.checked;
+  const evidentOk      = document.querySelector('[data-key="evident"] input')?.checked;
+
+  const majorOk = setupSelected && keyOk && slOk && tpOk && rrOk && planOk && evidentOk && !newsBlocked;
+
+  /* ── Score qualité ────────────────────────────────────────── */
+  // Basé sur : confluences (max 10) + niveaux clés (max 7) + discipline (max 4)
+  // Normalisé sur 21 points → score affiché /21, seuils 0-3 / 4-6 / 7+
+  const discItems   = document.querySelectorAll('[data-group="discipline"] input');
+  const discChecked = [...discItems].filter(c => c.checked).length;
+
+  const rawScore = confChecked + keyChecked + discChecked;
+  // Ramener le score à une échelle /21 affichée directement
+  const displayScore = rawScore;
+
+  let qualityLevel, qualityClass;
+  if      (displayScore <= 3)  { qualityLevel = 'Faible'; qualityClass = 'faible'; }
+  else if (displayScore <= 6)  { qualityLevel = 'Moyen';  qualityClass = 'moyen';  }
+  else                          { qualityLevel = 'A+';     qualityClass = 'a-plus'; }
+
+  const scoreMax = 21;
+  const scorePct = Math.min(displayScore / scoreMax * 100, 100);
+
+  scoreNumEl.textContent = displayScore;
+  qualityBadge.textContent = qualityLevel;
+  qualityBadge.className = 'quality-level ' + qualityClass;
+  scoreProgressEl.style.width = scorePct + '%';
+  scoreProgressEl.className = 'progress-fill lvl-' + qualityClass;
+
+  /* ── Verdict final ────────────────────────────────────────── */
+  let verdictClass, verdictIcon, verdictTitle, verdictReason;
+
+  if (!majorOk) {
+    verdictClass  = 'refused';
+    verdictIcon   = '⛔';
+    verdictTitle  = 'REFUSÉ';
+    verdictReason = buildRefusedReason({ setupSelected, keyOk, slOk, tpOk, rrOk, planOk, evidentOk, newsBlocked });
+  } else if (qualityClass === 'faible' || qualityClass === 'moyen') {
+    verdictClass  = 'weak';
+    verdictIcon   = '⚠';
+    verdictTitle  = 'VALIDÉ — MAIS MOYEN';
+    verdictReason = 'Critères obligatoires ok. Score qualité insuffisant (' + qualityLevel + '). Prudence.';
+  } else {
+    verdictClass  = 'approved';
+    verdictIcon   = '✅';
+    verdictTitle  = 'VALIDÉ — A+';
+    verdictReason = 'Setup complet. Autorisation de trader.';
+  }
+
+  verdictEl.className   = 'verdict ' + verdictClass;
+  verdictIconEl.textContent  = verdictIcon;
+  verdictTitleEl.textContent = verdictTitle;
+  verdictReasonEl.textContent= verdictReason;
+
+  /* ── Récapitulatif ────────────────────────────────────────── */
+  recapTypeEl.textContent  = tradeTypeEl.value  || '—';
+  recapMacroEl.textContent = macroEventEl.value || 'None';
+  recapSetupEl.textContent = setupTypeEl.value  || '—';
+  recapScoreEl.textContent = displayScore + ' · ' + qualityLevel;
+}
+
+/* Construire le message de refus détaillé */
+function buildRefusedReason(flags) {
+  const missing = [];
+  if (flags.newsBlocked)    missing.push('news < 30 min');
+  if (!flags.setupSelected) missing.push('setup non sélectionné');
+  if (!flags.keyOk)         missing.push('aucun niveau clé');
+  if (!flags.slOk)          missing.push('SL manquant');
+  if (!flags.tpOk)          missing.push('TP manquant');
+  if (!flags.rrOk)          missing.push('RR non atteint');
+  if (!flags.planOk)        missing.push('plan non respecté');
+  if (!flags.evidentOk)     missing.push('setup non évident');
+  return 'Manquant : ' + missing.join(', ') + '.';
+}
+
+/* ================================================================
+   ÉVÉNEMENTS
+================================================================ */
+
+/* Tous les inputs déclenchent evaluate + saveAll */
+function attachChange(el) { el.addEventListener('change', () => { evaluate(); saveAll(); }); }
+function attachInput(el)  { el.addEventListener('input',  () => { evaluate(); saveAll(); }); }
+
+attachChange(tradeTypeEl);
+attachChange(setupTypeEl);
+attachInput(setupNameEl);
+attachChange(macroEventEl);
+attachInput(noteEl);
+
+document.querySelectorAll('.check-item input[type="checkbox"]').forEach(cb => {
+  cb.addEventListener('change', function() {
+    const item = this.closest('.check-item');
+    // Cas news30 — style spécial géré dans evaluate()
+    if (this.id !== 'news30') {
+      item.classList.toggle('checked', this.checked);
+    }
+    evaluate();
+    saveAll();
+  });
+});
+
+/* ── Réinitialiser ────────────────────────────────────────── */
+btnReset.addEventListener('click', () => {
+  tradeTypeEl.value  = '';
+  setupTypeEl.value  = '';
+  setupNameEl.value  = '';
+  macroEventEl.value = 'None';
+  noteEl.value       = '';
+
+  document.querySelectorAll('.check-item').forEach(item => {
+    const cb = item.querySelector('input');
+    cb.checked = false;
+    item.classList.remove('checked', 'blocked');
+  });
+
+  Object.values(LS).forEach(k => localStorage.removeItem(k));
+  evaluate();
+});
+
+/* ── Helpers texte export ─────────────────────────────────── */
+function snapToText(snap) {
+  const line = '─'.repeat(44);
+  const chips = (arr) => arr && arr.length ? arr.join(', ') : '—';
+  return [
+    line,
+    'PRE-TRADE SNAPSHOT · ' + snap.ts,
+    line,
+    'Type de trade  : ' + (snap.tradeType  || '—'),
+    'Setup          : ' + (snap.setupType  || '—') + (snap.setupName ? ' — ' + snap.setupName : ''),
+    'Événement macro: ' + (snap.macroEvent || '—'),
+    '',
+    'Score qualité  : ' + snap.score + ' · ' + snap.quality,
+    'Verdict        : ' + snap.verdict,
+    '',
+    'Niveaux clés   : ' + chips(snap.keyLevels),
+    'Confluences    : ' + chips(snap.confluences),
+    'Risk mgmt      : ' + chips(snap.risk),
+    'Discipline     : ' + chips(snap.discipline),
+    '',
+    snap.note ? ('Note : ' + snap.note) : '',
+    line
+  ].filter(l => l !== null).join('\n');
+}
+
+/* ── Rendu HTML d'un snapshot ─────────────────────────────── */
+function verdictClassFromText(text) {
+  if (!text) return 'refused';
+  const t = text.toUpperCase();
+  if (t.includes('A+') || t.includes('VALIDÉ —') && t.includes('A+')) return 'approved';
+  if (t.includes('MOYEN')) return 'weak';
+  if (t.includes('VALIDÉ')) return 'approved';
+  return 'refused';
+}
+
+function renderSnap(snap, index) {
+  const vc = verdictClassFromText(snap.verdict);
+
+  // Tags méta
+  const tags = [];
+  if (snap.tradeType) tags.push({ label: 'Type', val: snap.tradeType });
+  if (snap.setupType) tags.push({ label: 'Setup', val: snap.setupType });
+  if (snap.macroEvent && snap.macroEvent !== 'None') tags.push({ label: 'Macro', val: snap.macroEvent });
+  tags.push({ label: 'Score', val: snap.score + ' · ' + snap.quality });
+
+  const tagsHtml = tags.map(t =>
+    `<span class="snap-tag"><strong>${t.label}</strong> ${t.val}</span>`
+  ).join('');
+
+  // Chips confluences + niveaux clés (limité à 6 pour compacité)
+  const allChips = [...(snap.confluences || []), ...(snap.keyLevels || [])].slice(0, 8);
+  const chipsHtml = allChips.length
+    ? allChips.map(c => `<span class="snap-chip">${c}</span>`).join('')
+    : '';
+
+  const noteHtml = snap.note
+    ? `<div class="snap-note">${snap.note.substring(0, 140)}${snap.note.length > 140 ? '…' : ''}</div>`
+    : '';
+
+  return `
+    <div class="snap-card" data-index="${index}">
+      <div class="snap-top">
+        <span class="snap-ts">${snap.ts}</span>
+        <span class="snap-verdict ${vc}">${snap.verdict || 'N/A'}</span>
+      </div>
+      <div class="snap-meta">${tagsHtml}</div>
+      ${chipsHtml ? `<div class="snap-chips">${chipsHtml}</div>` : ''}
+      ${noteHtml}
+      <div class="snap-actions">
+        <button class="btn-snap-copy" data-index="${index}" title="Copier ce snapshot en texte">
+          Copier texte
+        </button>
+        <button class="btn-snap-delete" data-index="${index}" title="Supprimer ce snapshot">
+          ✕
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+/* ── Rendu de tout l'historique ───────────────────────────── */
+function renderHistory() {
+  let snaps = [];
+  try { snaps = JSON.parse(localStorage.getItem(LS.snapshots)) || []; } catch(e) {}
+
+  const badge = $('history-count-badge');
+  const body  = $('history-body');
+  const empty = $('history-empty');
+
+  badge.textContent = snaps.length;
+
+  if (!snaps.length) {
+    body.innerHTML = '<div class="history-empty">Aucun snapshot sauvegardé.</div>';
+    return;
+  }
+
+  body.innerHTML = snaps.map((s, i) => renderSnap(s, i)).join('');
+
+  // Boutons copier
+  body.querySelectorAll('.btn-snap-copy').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const idx = parseInt(this.dataset.index);
+      let snaps = [];
+      try { snaps = JSON.parse(localStorage.getItem(LS.snapshots)) || []; } catch(e) {}
+      const text = snapToText(snaps[idx]);
+
+      navigator.clipboard.writeText(text).then(() => {
+        this.textContent = 'Copié !';
+        this.classList.add('copied');
+        setTimeout(() => {
+          this.textContent = 'Copier texte';
+          this.classList.remove('copied');
+        }, 2000);
+      }).catch(() => {
+        // Fallback pour Safari / contextes sans HTTPS
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        this.textContent = 'Copié !';
+        this.classList.add('copied');
+        setTimeout(() => {
+          this.textContent = 'Copier texte';
+          this.classList.remove('copied');
+        }, 2000);
+      });
+    });
+  });
+
+  // Boutons supprimer
+  body.querySelectorAll('.btn-snap-delete').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const idx = parseInt(this.dataset.index);
+      let snaps = [];
+      try { snaps = JSON.parse(localStorage.getItem(LS.snapshots)) || []; } catch(e) {}
+      snaps.splice(idx, 1);
+      localStorage.setItem(LS.snapshots, JSON.stringify(snaps));
+      renderHistory();
+    });
+  });
+}
+
+/* ── Toggle historique ────────────────────────────────────── */
+$('history-toggle').addEventListener('click', () => {
+  $('history-panel').classList.toggle('open');
+  if ($('history-panel').classList.contains('open')) renderHistory();
+});
+
+/* ── Effacer tout l'historique ────────────────────────────── */
+$('btn-clear-history').addEventListener('click', () => {
+  localStorage.removeItem(LS.snapshots);
+  renderHistory();
+});
+
+/* ── Snapshot ─────────────────────────────────────────────── */
+btnSnapshot.addEventListener('click', () => {
+  const now = new Date();
+  const snap = {
+    ts:          now.toLocaleString('fr-FR'),
+    tradeType:   tradeTypeEl.value,
+    setupType:   setupTypeEl.value,
+    setupName:   setupNameEl.value,
+    macroEvent:  macroEventEl.value,
+    note:        noteEl.value,
+    score:       scoreNumEl.textContent,
+    quality:     qualityBadge.textContent,
+    verdict:     verdictTitleEl.textContent,
+    keyLevels:   [...document.querySelectorAll('[data-group="key"] input')].filter(c=>c.checked).map(c=>c.value),
+    confluences: [...document.querySelectorAll('[data-group="conf"] input')].filter(c=>c.checked).map(c=>c.value),
+    risk:        [...document.querySelectorAll('[data-group="risk"] input')].filter(c=>c.checked).map(c=>c.value),
+    discipline:  [...document.querySelectorAll('[data-group="discipline"] input')].filter(c=>c.checked).map(c=>c.value),
+  };
+
+  let snaps = [];
+  try { snaps = JSON.parse(localStorage.getItem(LS.snapshots)) || []; } catch(e) {}
+  snaps.unshift(snap);
+  if (snaps.length > 50) snaps = snaps.slice(0, 50);
+  localStorage.setItem(LS.snapshots, JSON.stringify(snaps));
+
+  // Rafraîchir l'historique si ouvert
+  if ($('history-panel').classList.contains('open')) renderHistory();
+  else $('history-count-badge').textContent = snaps.length;
+
+  // Toast
+  toastEl.textContent = 'Snapshot #' + snaps.length + ' sauvegardé — ' + snap.ts + ' ✓';
+  toastEl.classList.add('show');
+  setTimeout(() => toastEl.classList.remove('show'), 2800);
+});
+
+/* ================================================================
+   INITIALISATION
+================================================================ */
+loadAll();
+evaluate();
+
+// Afficher le compteur de snapshots au chargement sans ouvrir le panneau
+(function() {
+  let snaps = [];
+  try { snaps = JSON.parse(localStorage.getItem(LS.snapshots)) || []; } catch(e) {}
+  $('history-count-badge').textContent = snaps.length;
+})();
+</script>
+
+</body>
+</html>
