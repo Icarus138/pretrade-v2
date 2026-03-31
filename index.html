@@ -1603,7 +1603,12 @@ btnReset.addEventListener('click', () => {
     item.classList.remove('checked', 'blocked');
   });
 
-  Object.values(LS).forEach(k => localStorage.removeItem(k));
+  // ⚠ On efface UNIQUEMENT les champs de saisie active,
+  //    PAS l'historique des snapshots (LS.snapshots est préservé).
+  const keysToReset = [LS.tradeType, LS.setupType, LS.setupName,
+                       LS.macroEvent, LS.note, LS.checks];
+  keysToReset.forEach(k => localStorage.removeItem(k));
+
   evaluate();
 });
 
@@ -1656,7 +1661,7 @@ function renderSnap(snap, index) {
     `<span class="snap-tag"><strong>${t.label}</strong> ${t.val}</span>`
   ).join('');
 
-  // Chips confluences + niveaux clés (limité à 6 pour compacité)
+  // Chips confluences + niveaux clés (limité à 8 pour compacité)
   const allChips = [...(snap.confluences || []), ...(snap.keyLevels || [])].slice(0, 8);
   const chipsHtml = allChips.length
     ? allChips.map(c => `<span class="snap-chip">${c}</span>`).join('')
@@ -1666,8 +1671,11 @@ function renderSnap(snap, index) {
     ? `<div class="snap-note">${snap.note.substring(0, 140)}${snap.note.length > 140 ? '…' : ''}</div>`
     : '';
 
+  // data-snapid = identifiant unique (timestamp), data-index = position pour copier
+  const snapId = snap.id || index;   // compatibilité avec anciens snapshots sans id
+
   return `
-    <div class="snap-card" data-index="${index}">
+    <div class="snap-card" data-index="${index}" data-snapid="${snapId}">
       <div class="snap-top">
         <span class="snap-ts">${snap.ts}</span>
         <span class="snap-verdict ${vc}">${snap.verdict || 'N/A'}</span>
@@ -1679,8 +1687,8 @@ function renderSnap(snap, index) {
         <button class="btn-snap-copy" data-index="${index}" title="Copier ce snapshot en texte">
           Copier texte
         </button>
-        <button class="btn-snap-delete" data-index="${index}" title="Supprimer ce snapshot">
-          ✕
+        <button class="btn-snap-delete" data-snapid="${snapId}" title="Supprimer ce snapshot">
+          &#10005;
         </button>
       </div>
     </div>
@@ -1740,13 +1748,19 @@ function renderHistory() {
     });
   });
 
-  // Boutons supprimer
+  // Boutons supprimer — filtrage par id unique, pas par index de position
   body.querySelectorAll('.btn-snap-delete').forEach(btn => {
     btn.addEventListener('click', function() {
-      const idx = parseInt(this.dataset.index);
+      const snapId = parseInt(this.dataset.snapid);
       let snaps = [];
-      try { snaps = JSON.parse(localStorage.getItem(LS.snapshots)) || []; } catch(e) {}
-      snaps.splice(idx, 1);
+      try {
+        const raw = localStorage.getItem(LS.snapshots);
+        snaps = Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
+      } catch(e) {}
+
+      // Supprimer par id unique (résistant aux décalages d'index)
+      snaps = snaps.filter(s => (s.id || 0) !== snapId);
+
       localStorage.setItem(LS.snapshots, JSON.stringify(snaps));
       renderHistory();
     });
@@ -1768,7 +1782,10 @@ $('btn-clear-history').addEventListener('click', () => {
 /* ── Snapshot ─────────────────────────────────────────────── */
 btnSnapshot.addEventListener('click', () => {
   const now = new Date();
+
+  // Construire l'objet snapshot
   const snap = {
+    id:          now.getTime(),                          // identifiant unique stable
     ts:          now.toLocaleString('fr-FR'),
     tradeType:   tradeTypeEl.value,
     setupType:   setupTypeEl.value,
@@ -1784,17 +1801,29 @@ btnSnapshot.addEventListener('click', () => {
     discipline:  [...document.querySelectorAll('[data-group="discipline"] input')].filter(c=>c.checked).map(c=>c.value),
   };
 
+  // ── Relire le tableau courant depuis localStorage (source de vérité)
+  //    pour éviter tout écrasement si plusieurs onglets sont ouverts
   let snaps = [];
-  try { snaps = JSON.parse(localStorage.getItem(LS.snapshots)) || []; } catch(e) {}
+  try {
+    const raw = localStorage.getItem(LS.snapshots);
+    const parsed = raw ? JSON.parse(raw) : [];
+    snaps = Array.isArray(parsed) ? parsed : [];   // garantit un tableau même si corrupted
+  } catch(e) {
+    snaps = [];
+  }
+
+  // Ajouter en tête (plus récent en premier) et limiter à 100 entrées
   snaps.unshift(snap);
-  if (snaps.length > 50) snaps = snaps.slice(0, 50);
+  if (snaps.length > 100) snaps = snaps.slice(0, 100);
+
+  // Persister
   localStorage.setItem(LS.snapshots, JSON.stringify(snaps));
 
-  // Rafraîchir l'historique si ouvert
+  // Rafraîchir l'historique si le panneau est déjà ouvert
   if ($('history-panel').classList.contains('open')) renderHistory();
   else $('history-count-badge').textContent = snaps.length;
 
-  // Toast
+  // Toast de confirmation
   toastEl.textContent = 'Snapshot #' + snaps.length + ' sauvegardé — ' + snap.ts + ' ✓';
   toastEl.classList.add('show');
   setTimeout(() => toastEl.classList.remove('show'), 2800);
